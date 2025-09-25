@@ -1,1 +1,1 @@
-# usyd-lhm-demo.github.io
+# usyd-lhm-demo
