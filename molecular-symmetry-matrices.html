@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Molecular Symmetry Matrix Tool</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f0f2f5; color: #333; max-width: 960px; margin: auto; }
+    .tool-container { background: #ffffff; padding: 20px; border-radius: 6px; box-shadow: 0 0 4px rgba(0,0,0,0.1); }
+    label, select, input[type=number], input[type=range] { display: block; margin-bottom: 10px; font-size: 14px; }
+    select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+    input[type=number] { padding: 4px; border: 1px solid #ccc; border-radius: 4px; width: 60px; display: inline-block; }
+    input[type=range] { width: 120px; display: inline-block; vertical-align: middle; }
+    button { padding: 6px 12px; margin-right: 10px; border: none; border-radius: 4px; background: #e67e22; color: #fff; cursor: pointer; font-size: 14px; }
+    button:hover { background: #d35400; }
+    .section { margin-bottom: 20px; }
+    .results { display: flex; gap: 20px; }
+    .results div { flex: 1; background: #ffffff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+    #viewer3d { position: relative; width: 600px; height: 450px; border: 1px solid #ccc; background: #ffffff; border-radius: 6px; margin: 1em auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .zoom-controls { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; }
+    .zoom-controls button { width: 32px; height: 32px; margin: 2px 0; border: none; background: #eeeeee; border-radius: 4px; cursor: pointer; }
+    .zoom-controls button:hover { background: #dddddd; }
+    .legend { position: absolute; bottom: 8px; left: 8px; background: rgba(255,255,255,0.8); padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+    .legend-item { display: inline-flex; align-items: center; margin-right: 12px; color: #333; }
+    .color-box { width: 12px; height: 12px; margin-right: 4px; border: 1px solid #999; display: inline-block; }
+  </style>
+</head>
+<body onload="updateOrig(); MathJax.typeset();">
+  <div class="tool-container">
+    <h2>Molecular Symmetry Matrix Tool</h2>
+    <div class="section">
+      <label for="operation">Symmetry Operation:</label>
+      <select id="operation"><option value="" disabled selected>-- select operation --</option></select>
+    </div>
+    <div class="section">
+      <p><strong>Matrix:</strong></p>
+      <div id="matrixDisplay"></div>
+    </div>
+    <div class="section">
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <label for="x">\(x\):</label>
+        <input type="number" id="x" value="1" step="0.1"><input type="range" id="xSlider" min="-5" max="5" step="0.1" value="1">
+        <label for="y">\(y\):</label>
+        <input type="number" id="y" value="1" step="0.1"><input type="range" id="ySlider" min="-5" max="5" step="0.1" value="1">
+        <label for="z">\(z\):</label>
+        <input type="number" id="z" value="0" step="0.1"><input type="range" id="zSlider" min="-5" max="5" step="0.1" value="0">
+      </div>
+      <div style="margin-top: 10px;">
+        <span id="origVec" style="display:inline-block">$$\vec{v}=\begin{pmatrix}1\\1\\0\end{pmatrix}$$</span>
+      </div>
+    </div>
+    <div class="section">
+      <button id="applyBtn">Apply Operation</button>
+      <button id="randomBtn">Randomize Vector</button>
+    </div>
+    <div class="section results">
+      <div>
+        <p><strong>Transformed Vector:</strong></p>
+        <div id="resultDisplay"></div>
+      </div>
+    </div>
+    <div class="section">
+      <p><strong>Magnitude Before:</strong> <span id="magBefore"></span></p>
+      <p><strong>Magnitude After:</strong> <span id="magAfter"></span></p>
+    </div>
+    <div class="section">
+      <p><strong>3D Visualization:</strong></p>
+      <div id="viewer3d">
+        <div class="zoom-controls"><button onclick="zoom(1.1)">+</button><button onclick="zoom(0.9)">−</button></div>
+        <div class="legend">
+          <div class="legend-item"><span class="color-box" style="background:#0000ff"></span>v</div>
+          <div class="legend-item"><span class="color-box" style="background:#ff0000"></span>v'</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const operations={C3:{name:'C₃ (120°)',matrix:[[-0.5,-Math.sqrt(3)/2,0],[Math.sqrt(3)/2,-0.5,0],[0,0,1]]},C4:{name:'C₄ (90°)',matrix:[[0,-1,0],[1,0,0],[0,0,1]]},C2:{name:'C₂ (180°)',matrix:[[-1,0,0],[0,-1,0],[0,0,1]]},C6:{name:'C₆ (60°)',matrix:[[0.5,-Math.sqrt(3)/2,0],[Math.sqrt(3)/2,0.5,0],[0,0,1]]},i:{name:'Inversion (i)',matrix:[[-1,0,0],[0,-1,0],[0,0,-1]]},S4:{name:'S₄ (improper 90°)',matrix:[[0,-1,0],[1,0,0],[0,0,-1]]},'σh':{name:'σₕ (mirror XY)',matrix:[[1,0,0],[0,1,0],[0,0,-1]]},'σv':{name:'σᵥ (mirror XZ)',matrix:[[1,0,0],[0,-1,0],[0,0,1]]},'σv2':{name:'σᵥ (mirror YZ)',matrix:[[-1,0,0],[0,1,0],[0,0,1]]}};
+    const latexMatrices={C3:[['-\\tfrac{1}{2}','-\\tfrac{\\sqrt{3}}{2}','0'],['\\tfrac{\\sqrt{3}}{2}','-\\tfrac{1}{2}','0'],['0','0','1']],C4:[['0','-1','0'],['1','0','0'],['0','0','1']],C2:[['-1','0','0'],['0','-1','0'],['0','0','1']],C6:[['\\tfrac{1}{2}','-\\tfrac{\\sqrt{3}}{2}','0'],['\\tfrac{\\sqrt{3}}{2}','\\tfrac{1}{2}','0'],['0','0','1']],i:[['-1','0','0'],['0','-1','0'],['0','0','-1']],S4:[['0','-1','0'],['1','0','0'],['0','0','-1']], 'σh':[ ['1','0','0'],['0','1','0'],['0','0','-1']], 'σv':[ ['1','0','0'],['0','-1','0'],['0','0','1']],'σv2':[ ['-1','0','0'],['0','1','0'],['0','0','1']]};
+    const opSelect=document.getElementById('operation'),applyBtn=document.getElementById('applyBtn'),randomBtn=document.getElementById('randomBtn'),matrixDiv=document.getElementById('matrixDisplay'),resultDiv=document.getElementById('resultDisplay'),magBefore=document.getElementById('magBefore'),magAfter=document.getElementById('magAfter'),origSpan=document.getElementById('origVec'),viewer3d=document.getElementById('viewer3d');let scene,camera,renderer,controls;
+    function populateOperations(){for(const k in operations){const o=document.createElement('option');o.value=k;o.textContent=operations[k].name;opSelect.appendChild(o);}}
+    function displayMatrix(){if(!opSelect.value)return;const rows=latexMatrices[opSelect.value];const M='\\begin{pmatrix}'+rows.map(r=>r.join(' & ')).join('\\\\')+'\\end{pmatrix}';matrixDiv.innerHTML=`$$${M}$$`;MathJax.typesetPromise();}
+    function syncInputs(a){const n=document.getElementById(a),r=document.getElementById(a+'Slider');n.addEventListener('input',()=>{r.value=n.value;updateOrig();});r.addEventListener('input',()=>{n.value=r.value;updateOrig();});}
+    function updateOrig(){const x=document.getElementById('x').value,y=document.getElementById('y').value,z=document.getElementById('z').value;origSpan.innerHTML=`$$\\vec{v}=\\begin{pmatrix}${x}\\\\${y}\\\\${z}\\end{pmatrix}$$`;MathJax.typesetPromise();}
+    function applyOperation(){displayMatrix();const op=operations[opSelect.value],rows=latexMatrices[opSelect.value],v=['x','y','z'].map(i=>parseFloat(document.getElementById(i).value)),res=op.matrix.map(r=>r[0]*v[0]+r[1]*v[1]+r[2]*v[2]);
+      const M='\\begin{pmatrix}'+rows.map(r=>r.join(' & ')).join('\\\\')+'\\end{pmatrix}',
+            vVec='\\begin{pmatrix}'+v.join('\\\\')+'\\end{pmatrix}',
+            step='\\begin{pmatrix}'+rows.map((r,i)=>`${r[0]}\\!(${v[0]}) + ${r[1]}\\!(${v[1]}) + ${r[2]}\\!(${v[2]})`).join('\\\\')+'\\end{pmatrix}',
+            result='\\begin{pmatrix}'+res.map(x=>x.toFixed(2)).join('\\\\')+'\\end{pmatrix}';
+      resultDiv.innerHTML=`$$${M}${vVec} = ${step} = ${result}$$`;
+      magBefore.innerHTML = `$$|\\vec{v}|=\\sqrt{(${v[0]})^2+(${v[1]})^2+(${v[2]})^2}=${Math.hypot(...v).toFixed(2)}$$`;
+      magAfter.innerHTML  = `$$|\\vec{v}'|=\\sqrt{(${res[0].toFixed(2)})^2+(${res[1].toFixed(2)})^2+(${res[2].toFixed(2)})^2}=${Math.hypot(...res).toFixed(2)}$$`;
+      MathJax.typesetPromise(); draw3D(v,res);}
+    function randomizeVector(){['x','y','z'].forEach(i=>{const val=(Math.random()*2-1).toFixed(2);document.getElementById(i).value=val;document.getElementById(i+'Slider').value=val});updateOrig();}
+    function init3D(){scene=new THREE.Scene();scene.background=new THREE.Color(0xf9f9f9);camera=new THREE.PerspectiveCamera(75,600/450,0.1,1000);camera.position.set(5,5,5);renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(600,450);viewer3d.appendChild(renderer.domElement);controls=new THREE.OrbitControls(camera,renderer.domElement);animate();}
+    function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}
+    function draw3D(v1,v2){while(scene.children.length)scene.remove(scene.children[0]);draw_arrow3D([5,0,0],0x000000,'x-axis');draw_arrow3D([0,5,0],0x000000,'y-axis');draw_arrow3D([0,0,5],0x000000,'z-axis');draw_arrow3D(v1,0x0000ff,'v');draw_arrow3D(v2,0xff0000,"v'");}
+    function draw_arrow3D(vec,c,label){const o=new THREE.Vector3(0,0,0),e=new THREE.Vector3(...vec);if(label.endsWith('-axis'))scene.add(new THREE.ArrowHelper(e.clone().normalize(),o,e.length(),c,0.4,0.2));else{scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o,e]),new THREE.LineBasicMaterial({color:c})));const dot=new THREE.Mesh(new THREE.SphereGeometry(0.1,16,16),new THREE.MeshBasicMaterial({color:c}));dot.position.copy(e);scene.add(dot);}const sp=makeTextSprite(label,c,0.8);sp.position.copy(e.clone().multiplyScalar(1.1));scene.add(sp);}
+    function makeTextSprite(msg,clr,scl){const cn=document.createElement('canvas');cn.width=180;cn.height=40;const cx=cn.getContext('2d');cx.fillStyle='rgba(255,255,255,0.85)';cx.fillRect(0,0,cn.width,cn.height);cx.font='20px Arial';cx.fillStyle=`#${clr.toString(16).padStart(6,'0')}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(msg,cn.width/2,cn.height/2);const tx=new THREE.CanvasTexture(cn);const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tx}));spr.scale.set(scl*2,scl*0.75,1);return spr;}
+    function zoom(f){if(camera){camera.zoom*=f;camera.updateProjectionMatrix();}}
+    populateOperations();opSelect.addEventListener('change',displayMatrix);init3D();syncInputs('x');syncInputs('y');syncInputs('z');applyBtn.addEventListener('click',applyOperation);randomBtn.addEventListener('click',randomizeVector);
+  </script>
+</body>
+</html>

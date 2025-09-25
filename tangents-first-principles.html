@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tangents and First Principles</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }
+    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    input[type="text"], textarea, input[type="number"] { padding: 8px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="text"] { width: 60%; }
+    textarea { width: 60%; display: none; height: 2.5em; }
+    input[type="number"] { margin-left: 10px; }
+    label { margin-right: 15px; }
+    button { padding: 10px 16px; font-size: 1em; border: none; border-radius: 4px; background: #007bff; color: #fff; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    #plot { width: 100%; height: 500px; margin-top: 20px; }
+    .domain-control { margin-top: 15px; display: flex; align-items: center; }
+    .domain-control label { flex: 0 0 auto; }
+    .domain-control .range-slider { position: relative; flex: 1 1 auto; height: 30px; margin: 0 10px; }
+    .range-slider input[type=range] {
+      position: absolute; top: 50%; width: 100%; transform: translateY(-50%);
+      pointer-events: none; -webkit-appearance: none; background: transparent; margin: 0;
+    }
+    .range-slider input[type=range]::-webkit-slider-thumb {
+      pointer-events: all; -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+      background: #007bff; cursor:pointer; margin-top: -6px;
+    }
+    .range-slider input[type=range]::-moz-range-thumb {
+      pointer-events: all; height: 16px; width: 16px; border-radius: 50%; background: #007bff; cursor:pointer;
+    }
+    .range-slider input[type=range]::-webkit-slider-runnable-track {
+      height: 4px; background: #ccc; border-radius: 2px;
+    }
+    .range-slider input[type=range]::-moz-range-track {
+      height: 4px; background: #ccc; border-radius: 2px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Tangents and First Principles</h1>
+
+    <!-- Function Input -->
+    <div>
+      <label for="functionInput">f(x) =</label>
+      <input type="text" id="functionInput" placeholder="e.g. sin(x) + x^2" />
+      <textarea id="latexInput" placeholder="LaTeX e.g. \\sin(x) + x^2"></textarea>
+      <label><input type="checkbox" id="useLatex"> Use LaTeX input</label>
+    </div>
+
+    <!-- Domain Controls -->
+    <div class="domain-control">
+      <label>Domain:</label>
+      <div class="range-slider">
+        <input type="range" id="domainMinSlider" min="-100" max="100" step="0.1" value="-10"/>
+        <input type="range" id="domainMaxSlider" min="-100" max="100" step="0.1" value="10"/>
+      </div>
+      <input type="number" id="domainMinInput" step="0.1" value="-10"/>
+      <input type="number" id="domainMaxInput" step="0.1" value="10"/>
+    </div>
+
+    <!-- Plot Options -->
+    <div style="margin-top:10px;">
+      <label><input type="checkbox" id="exactTangent" disabled> Show secant through \(x = a\) and \(x = a + h\)</label>
+      <label><input type="checkbox" id="plotTangent" disabled> Show tangent at \(x = a\)</label>
+    </div>
+
+    <!-- a & h Controls -->
+    <div class="domain-control">
+      <label>\(a\):</label>
+      <div class="range-slider" style="flex:0 0 120px; margin:0 5px;">
+        <input type="range" id="aSlider" min="-10" max="10" step="0.1" value="1"/>
+      </div>
+      <input type="number" id="aInput" step="0.1" value="1" style="width:60px; margin-right:15px;"/>
+      <label>\(h\):</label>
+      <div class="range-slider" style="flex:0 0 120px; margin:0 5px;">
+        <input type="range" id="hSlider" min="-5" max="5" step="0.001" value="0.5"/>
+      </div>
+      <input type="number" id="hInput" min="-5" max="5" step="0.001" value="0.5" style="width:60px;"/>
+    </div>
+
+    <!-- Buttons -->
+    <div style="margin-top:15px;">
+      <button id="plotButton">Plot Function</button>
+      <button id="resetButton">Reset</button>
+      <button id="animateHButton">Animate h→0</button>
+    </div>
+
+    <!-- Equation & Info -->
+    <div id="equation" style="margin-top:10px; text-align:center;"></div>
+    <div id="tangentInfo" style="margin-top:10px; font-weight:bold; text-align:center;"></div>
+
+    <!-- Plot -->
+    <div id="plot"></div>
+  </div>
+
+  <script>
+    // ---- State ----
+    let xValues = [], yValues = [], slopeValues = [], tangentLineY = [], secantLineY = [];
+    let a0 = 0, h0 = 0, fa0 = 0, fah0 = 0, m_exact = 0;
+    let compiled = { f: null, f1: null };
+    let animateInterval = null;
+    let lastRaw = '', lastExpr = '';
+
+    // ---- DOM Elements ----
+    const funcInput    = document.getElementById('functionInput');
+    const latexInput   = document.getElementById('latexInput');
+    const useLatexCb   = document.getElementById('useLatex');
+    const exactCb      = document.getElementById('exactTangent');
+    const plotTangentCb= document.getElementById('plotTangent');
+    const animateBtn   = document.getElementById('animateHButton');
+    const eqDiv        = document.getElementById('equation');
+    const tanDiv       = document.getElementById('tangentInfo');
+    const plotEl       = document.getElementById('plot');
+
+    const dMinS = document.getElementById('domainMinSlider'),
+          dMaxS = document.getElementById('domainMaxSlider'),
+          dMinI = document.getElementById('domainMinInput'),
+          dMaxI = document.getElementById('domainMaxInput');
+
+    const aSlider = document.getElementById('aSlider'),
+          aInput  = document.getElementById('aInput');
+
+    const hSlider = document.getElementById('hSlider'),
+          hInput  = document.getElementById('hInput');
+
+    // ---- Sync Helpers ----
+    function syncDomainFromSlider() {
+      let minV = parseFloat(dMinS.value), maxV = parseFloat(dMaxS.value);
+      if (minV >= maxV) {
+        if (this.id === 'domainMinSlider') minV = maxV - parseFloat(dMinS.step);
+        else maxV = minV + parseFloat(dMaxS.step);
+      }
+      dMinS.value = minV; dMaxS.value = maxV;
+      dMinI.value = minV; dMaxI.value = maxV;
+      tryReplot();
+    }
+    function syncDomainFromInput() {
+      let minV = parseFloat(dMinI.value), maxV = parseFloat(dMaxI.value);
+      if (minV >= maxV) { alert('Domain min must be < max.'); return; }
+      dMinS.value = minV; dMaxS.value = maxV;
+      tryReplot();
+    }
+    function syncAFromSlider() {
+      aInput.value = aSlider.value;
+      tryReplot();
+    }
+    function syncAFromInput() {
+      let v = parseFloat(aInput.value);
+      aSlider.value = v;
+      tryReplot();
+    }
+    function syncHFromSlider() {
+      hInput.value = hSlider.value;
+      tryReplot();
+    }
+    function syncHFromInput() {
+      let v = parseFloat(hInput.value);
+      hSlider.value = v;
+      tryReplot();
+    }
+
+    // ---- Attach Sync Events ----
+    dMinS.addEventListener('input', syncDomainFromSlider);
+    dMaxS.addEventListener('input', syncDomainFromSlider);
+    dMinI.addEventListener('change', syncDomainFromInput);
+    dMaxI.addEventListener('change', syncDomainFromInput);
+
+    aSlider.addEventListener('input', syncAFromSlider);
+    aInput.addEventListener('change', syncAFromInput);
+
+    hSlider.addEventListener('input', syncHFromSlider);
+    hInput.addEventListener('change', syncHFromInput);
+
+    useLatexCb.addEventListener('change', () => {
+      funcInput.style.display = useLatexCb.checked ? 'none' : 'inline-block';
+      latexInput.style.display = useLatexCb.checked ? 'block' : 'none';
+    });
+
+    // ---- Plot / Reset ----
+    document.getElementById('plotButton').addEventListener('click', () => {
+      if (!parseAndCompute()) return;
+      renderPlot();
+      exactCb.disabled = false;
+      plotTangentCb.disabled = false;
+    });
+    document.getElementById('resetButton').addEventListener('click', () => {
+      funcInput.value = ''; latexInput.value = '';
+      useLatexCb.checked = exactCb.checked = plotTangentCb.checked = false;
+      exactCb.disabled = true;
+      plotTangentCb.disabled = true;
+      dMinS.value = dMinI.value = -10;
+      dMaxS.value = dMaxI.value = 10;
+      aSlider.value = aInput.value = 1;
+      hSlider.value = hInput.value = 0.5;
+      eqDiv.innerHTML = tanDiv.innerHTML = '';
+      Plotly.purge(plotEl);
+      lastRaw = '';
+    });
+
+    // ---- Instant checkbox updates ----
+    exactCb.addEventListener('change', () => {
+      if (!parseAndCompute()) return;
+      renderPlot();
+    });
+    plotTangentCb.addEventListener('change', () => {
+      if (!parseAndCompute()) return;
+      renderPlot();
+    });
+
+    // ---- Animate h→0 ----
+    animateBtn.addEventListener('click', () => {
+      if (animateInterval) return;
+      animateInterval = setInterval(() => {
+        let h = parseFloat(hInput.value);
+        if (Math.abs(h) <= 0.1) {
+          h = 0;
+        } else {
+          h += h > 0 ? -0.1 : +0.1;
+        }
+        hInput.value = h.toFixed(3);
+        hSlider.value = h;
+        if (lastRaw) {
+          parseAndCompute();
+          renderPlot();
+        }
+        if (h === 0) {
+          clearInterval(animateInterval);
+          animateInterval = null;
+        }
+      }, 500);
+    });
+
+    // ---- Compute Data ----
+    function parseAndCompute(){
+      const raw = useLatexCb.checked ? latexInput.value.trim() : funcInput.value.trim();
+      if (!raw) { alert('Enter a function.'); return false; }
+      const expr = raw.replace(/\\([a-zA-Z]+)/g,'$1').replace(/[{}]/g,'');
+      const mn = parseFloat(dMinI.value), mx = parseFloat(dMaxI.value);
+      if (mn >= mx) { alert('Domain min must be < max.'); return false; }
+      try {
+        compiled.f  = math.parse(expr).compile();
+        compiled.f1 = math.derivative(expr,'x').compile();
+      } catch(e) {
+        alert('Parse error: ' + e); return false;
+      }
+      xValues = math.range(mn, mx, 0.1, true).toArray();
+      yValues = xValues.map(x => compiled.f.evaluate({ x }));
+      slopeValues = xValues.map(x => compiled.f1.evaluate({ x }));
+
+      a0   = parseFloat(aInput.value);
+      h0   = parseFloat(hInput.value);
+      fa0  = compiled.f.evaluate({ x: a0 });
+      fah0 = compiled.f.evaluate({ x: a0 + h0 });
+      m_exact = compiled.f1.evaluate({ x: a0 });
+      tangentLineY = xValues.map(x => m_exact * (x - a0) + fa0);
+      const m_sec = (fah0 - fa0) / h0;
+      secantLineY = xValues.map(x => m_sec * (x - a0) + fa0);
+
+      lastRaw = raw;
+      lastExpr = expr;
+      return true;
+    }
+
+    // ---- Render Plot ----
+    function renderPlot(){
+      const tex = useLatexCb.checked ? lastRaw : math.parse(lastExpr).toTex();
+      eqDiv.innerHTML = `\\(f(x)=${tex}\\), tangent at \\(a=${a0.toFixed(2)}\\)`;
+      MathJax.typesetPromise([eqDiv]);
+
+      const traces = [
+        { x: xValues, y: yValues,       mode: 'lines',      name: 'f(x)' },
+        { x: xValues, y: tangentLineY,  mode: 'lines',      name: 'tangent at a', visible: plotTangentCb.checked ? true : 'legendonly' },
+        { x: xValues, y: secantLineY,   mode: 'lines',      name: 'secant line',    visible: exactCb.checked ? true : 'legendonly', line: { dash: 'dot' } },
+        { x: [a0, a0 + h0], y: [fa0, fah0], mode: 'markers+text', name: 'key points', visible: exactCb.checked ? true : 'legendonly', text: ['a','a+h'], textposition: 'top center' }
+      ];
+
+      Plotly.newPlot(plotEl, traces, {
+        title: 'Function, Secant and/or Tangent',
+        xaxis: { title: 'x' }, yaxis: { title: 'y', zeroline: true }
+      }, { responsive: true });
+
+      attachHoverTangent();
+    }
+
+    // ---- Hover Tangent ----
+    function attachHoverTangent(){
+      plotEl.on('plotly_hover', ev => {
+        const i = ev.points[0].pointIndex;
+        const x0 = xValues[i], y0 = yValues[i], m = slopeValues[i];
+        const c = (y0 - m*x0).toFixed(2), sign = c >= 0 ? '+' : '-';
+        tanDiv.innerHTML = `Tangent at \\(x=${x0.toFixed(2)}\\): \\(y=${m.toFixed(2)}x ${sign} ${Math.abs(c)}\\)`;
+        MathJax.typesetPromise([tanDiv]);
+      });
+      plotEl.on('plotly_unhover', () => {
+        tanDiv.innerHTML = '';
+      });
+    }
+
+    // ---- Auto-replot on param change ----
+    function tryReplot(){
+      if (lastRaw) {
+        if (parseAndCompute()) renderPlot();
+      }
+    }
+  </script>
+</body>
+</html>

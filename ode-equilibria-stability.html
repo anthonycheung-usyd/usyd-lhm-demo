@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equilibria Stability Visualiser</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; padding: 0; background: #f0f4f8; }
+    h1 { text-align: center; }
+    #input-section { margin: 20px auto; text-align: center; }
+    #equation-display { text-align: center; font-size: 1.2em; margin-top: 10px; }
+    #plot, #solution-plot { margin: 20px auto; width: 600px; height: 400px; background: #fff; border: 1px solid #ccc; position: relative; }
+    #instructions { margin-top: 10px; text-align: center; font-size: 0.9em; color: #555; }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 18px;
+      margin: 8px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Equilibria Stability Visualiser</h1>
+<div id="input-section">
+  <label for="functionInput">Enter the right hand side \(f(y)\) of the differential equation \(\dfrac{dy}{dt} = f(y)\) below:<br><br>\(\dfrac{dy}{dt} =\)</label>
+  <input type="text" id="functionInput" placeholder="e.g., y*(1-y)*(y-2)">
+  <button onclick="plotFunction()">Plot</button>
+  <button onclick="resetPlots()">Reset</button>
+</div>
+<div id="equation-display"></div>
+<div id="plot"></div>
+<div id="solution-plot"></div>
+
+<script>
+Plotly.newPlot('plot', [], {
+  title: 'Stability of Equilibria',
+  xaxis: { title: 'y', range: [-10, 10] },
+  yaxis: { title: 'f(y)', range: [-10, 10] },
+  showlegend: false
+});
+Plotly.newPlot('solution-plot', [], {
+  title: 'Solution Curves',
+  xaxis: { title: 't', range: [0, 10] },
+  yaxis: { title: 'y(t)', range: [-10, 10] },
+  showlegend: true
+});
+
+function plotFunction() {
+  const expr = document.getElementById('functionInput').value;
+  if (!expr) return;
+
+  let f;
+  try {
+    const parsed = math.parse(expr);
+    f = parsed.compile();
+  } catch (e) {
+    alert('Error parsing expression.');
+    return;
+  }
+
+  const exprForLatex = expr.replace(/\*/g, '');
+  document.getElementById('equation-display').innerHTML = `$$\\frac{dy}{dt} = ${exprForLatex}$$`;
+  if (window.MathJax) MathJax.typesetPromise();
+
+  const yValues = [];
+  const fValues = [];
+
+  for (let pixelX = -10; pixelX <= 10; pixelX += 0.1) {
+    yValues.push(pixelX);
+    try {
+      fValues.push(f.evaluate({ y: pixelX }));
+    } catch (e) {
+      fValues.push(null);
+    }
+  }
+
+  const equilibria = [];
+  const steps = 1000;
+  for (let i = 0; i <= steps; i++) {
+    const y = (i/steps - 0.5) * 20;
+    let fValue;
+    try {
+      fValue = f.evaluate({ y: y });
+    } catch (e) {
+      continue;
+    }
+    if (Math.abs(fValue) < 0.1) equilibria.push(y);
+  }
+
+  const stablePoints = [];
+  const unstablePoints = [];
+
+  equilibria.forEach(yEq => {
+    let slope;
+    try {
+      slope = (f.evaluate({ y: yEq + 0.01 }) - f.evaluate({ y: yEq - 0.01 })) / 0.02;
+    } catch (e) {
+      slope = 0;
+    }
+    if (slope < 0) {
+      stablePoints.push(yEq);
+    } else {
+      unstablePoints.push(yEq);
+    }
+  });
+
+  const arrowAnnotations = [];
+  for (let y = -9.5; y <= 9.5; y += 1) {
+    let slope;
+    try {
+      slope = f.evaluate({ y: y });
+    } catch (e) {
+      continue;
+    }
+    const direction = slope > 0 ? -1 : 1;
+    arrowAnnotations.push({
+      x: y,
+      y: -0.5,
+      ax: y + direction * 0.5,
+      ay: -0.5,
+      xref: 'x', yref: 'y', axref: 'x', ayref: 'y',
+      showarrow: true,
+      arrowhead: 2,
+      arrowsize: 1,
+      arrowwidth: 1,
+      arrowcolor: 'black'
+    });
+  }
+
+  Plotly.newPlot('plot', [
+    { x: yValues, y: fValues, mode: 'lines', name: 'f(y)', line: { color: 'blue' } },
+    { x: stablePoints, y: Array(stablePoints.length).fill(0), mode: 'markers', type: 'scatter', name: 'Stable equilibrium', marker: { color: 'green', size: 10, symbol: 'circle' } },
+    { x: unstablePoints, y: Array(unstablePoints.length).fill(0), mode: 'markers', type: 'scatter', name: 'Unstable equilibrium', marker: { color: 'red', size: 10, symbol: 'circle-open' } }
+  ], {
+    title: 'Stability of Equilibria',
+    xaxis: { title: 'y' },
+    yaxis: { title: 'f(y)' },
+    legend: { x: 1, y: 0, xanchor: 'right', yanchor: 'bottom' },
+    annotations: arrowAnnotations
+  });
+
+  const tValues = [];
+  for (let t = 0; t <= 10; t += 0.05) {
+    tValues.push(t);
+  }
+
+  const initialConditions = [];
+  equilibria.forEach(eq => {
+    initialConditions.push(eq - 0.5);
+    initialConditions.push(eq + 0.5);
+  });
+
+  const solutionCurves = [];
+  initialConditions.forEach(y0 => {
+    const ySol = [y0];
+    for (let i = 1; i < tValues.length; i++) {
+      const dt = tValues[i] - tValues[i-1];
+      try {
+        const k1 = f.evaluate({ y: ySol[i-1] });
+        const k2 = f.evaluate({ y: ySol[i-1] + 0.5 * dt * k1 });
+        const k3 = f.evaluate({ y: ySol[i-1] + 0.5 * dt * k2 });
+        const k4 = f.evaluate({ y: ySol[i-1] + dt * k3 });
+        const nextY = ySol[i-1] + (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+        ySol.push(nextY);
+      } catch (e) {
+        ySol.push(null);
+      }
+    }
+    solutionCurves.push({ x: tValues, y: ySol, mode: 'lines', name: `y₀=${y0.toFixed(2)}` });
+  });
+
+  Plotly.newPlot('solution-plot', solutionCurves, {
+    title: 'Solution Curves',
+    xaxis: { title: 't' },
+    yaxis: { title: 'y(t)' },
+    showlegend: true
+  });
+}
+
+function resetPlots() {
+  document.getElementById('functionInput').value = '';
+  document.getElementById('equation-display').innerHTML = '';
+  Plotly.newPlot('plot', [], {
+    title: 'Stability of Equilibria',
+    xaxis: { title: 'y', range: [-10, 10] },
+    yaxis: { title: 'f(y)', range: [-10, 10] },
+    showlegend: false
+  });
+  Plotly.newPlot('solution-plot', [], {
+    title: 'Solution Curves',
+    xaxis: { title: 't', range: [0, 10] },
+    yaxis: { title: 'y(t)', range: [-10, 10] },
+    showlegend: true
+  });
+}
+</script>
+
+</body>
+</html>

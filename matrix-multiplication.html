@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Matrix Multiplication Practice</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
+      max-width: 960px;
+      margin: auto;
+      padding: 2em;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5em;
+      color: #2c3e50;
+    }
+
+    label {
+      margin-right: 1em;
+      font-weight: 500;
+    }
+
+    select {
+      padding: 6px 8px;
+      font-size: 1em;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      margin-top: 0.2em;
+    }
+
+    button {
+      padding: 8px 14px;
+      font-size: 1em;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 1em;
+      transition: background 0.2s ease-in-out;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    #matrixLatex {
+      background: #fff;
+      border-radius: 6px;
+      padding: 1em;
+      margin: 1.5em 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      font-size: 1.1em;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    td {
+      border: 1px solid #888;
+      padding: 5px;
+      text-align: center;
+    }
+
+    input[type='number'] {
+      width: 3em;
+      text-align: center;
+      padding: 4px;
+      border-radius: 3px;
+      border: 1px solid #aaa;
+    }
+
+    input[type='radio'] {
+      margin-right: 0.5em;
+    }
+
+    .clickable-cell:hover {
+      background-color: #eef;
+      cursor: pointer;
+    }
+
+    .matrix-wrapper {
+      display: inline-flex;
+      align-items: center;
+      font-family: serif;
+      margin: 1em 0;
+    }
+
+    .matrix-wrapper table {
+      margin: 0 0.3em;
+    }
+
+    .bracket {
+      font-size: 2.5em;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .math-label {
+      font-family: serif;
+      font-size: 1.1em;
+      margin-right: 0.3em;
+    }
+
+    .centered-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .centered-matrix-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #matrixFeedback {
+      font-weight: bold;
+      margin-top: 1em;
+      font-size: 1.1em;
+      display: none;
+    }
+
+    #countdownTimer {
+      font-style: italic;
+      text-align: center;
+      margin-top: 0.5em;
+    }
+
+    #matrixSolution:empty,
+    #explanationArea:empty {
+      display: none;
+    }
+
+    #matrixSolution,
+    #explanationArea {
+      background: #ffffff;
+      border-radius: 6px;
+      padding: 1em;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      margin-top: 1em;
+      font-family: serif;
+      font-size: 1.1em;
+    }
+
+    #matrixScore {
+      font-weight: bold;
+      font-size: 1.2em;
+      text-align: center;
+      margin-top: 1em;
+    }
+
+    #sizeSelectors {
+      margin-top: 1em;
+    }
+
+    @media (max-width: 600px) {
+      select, button {
+        width: 100%;
+        margin-top: 0.5em;
+      }
+
+      .matrix-wrapper {
+        flex-direction: column;
+      }
+
+      .matrix-wrapper table {
+        margin: 0.5em 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Matrix Multiplication Practice</h2>
+
+  <fieldset>
+    <legend><strong>Matrix size mode:</strong></legend>
+    <label><input type="radio" name="mode" value="random" checked onchange="updateMode()"> Generate random sizes</label>
+    <label><input type="radio" name="mode" value="manual" onchange="updateMode()"> I want to choose sizes</label>
+  </fieldset>
+
+  <div id="sizeSelectors" style="display: none;">
+    <label>Select size of matrix A:
+      <select id="sizeSelectA" onchange="generateMatrices()"></select>
+    </label>
+
+    <label style="margin-left: 2em;">Select size of matrix B:
+      <select id="sizeSelectB" onchange="generateMatrices()"></select>
+    </label>
+  </div>
+
+  <button onclick="regenerateValues()">🔁 Regenerate A and B</button>
+
+  <div id="matrixLatex"></div>
+
+  <p><strong>Your Answer:</strong></p>
+  <div id="studentResponse" class="centered-block"></div>
+
+  <p id="matrixFeedback"></p>
+  <div id="countdownTimer"></div>
+  <div id="matrixSolution"></div>
+  <div id="explanationArea"></div>
+
+  <div style="margin-top: 1em;">
+    <button onclick="skipToNext()" id="skipButton" style="display:none;">Next Problem</button>
+    <button onclick="toggleCountdown()" id="pauseButton" style="display:none;">Pause Countdown</button>
+  </div>
+
+  <p id="matrixScore"></p>
+
+  <script>
+    const sizeOptions = ["1x1", "1x2", "1x3", "2x1", "2x2", "2x3", "3x1", "3x2", "3x3"];
+    let A, B, C, rowsA, colsA, rowsB, colsB, validAB;
+    let score = 0, total = 0;
+    let countdownInterval;
+    let countdownRemaining = 0;
+    let countdownPaused = false;
+    let mode = "random";
+
+    function updateMode() {
+      mode = document.querySelector('input[name="mode"]:checked').value;
+      document.getElementById("sizeSelectors").style.display = mode === "manual" ? "block" : "none";
+      regenerateValues();
+    }
+
+    function populateSizeDropdowns() {
+      const selectA = document.getElementById("sizeSelectA");
+      const selectB = document.getElementById("sizeSelectB");
+      sizeOptions.forEach(size => {
+        const label = size.replace("x", " × ");
+        selectA.innerHTML += `<option value="${size}">${label}</option>`;
+        selectB.innerHTML += `<option value="${size}">${label}</option>`;
+      });
+      selectA.value = "2x2";
+      selectB.value = "2x2";
+    }
+
+    function parseSize(value) {
+      return value.split("x").map(Number);
+    }
+
+    function getRandomMatrix(rows, cols) {
+      return Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => Math.floor(Math.random() * 11) - 5)
+      );
+    }
+
+    function regenerateValues() {
+      if (mode === "random") {
+        const randomA = sizeOptions[Math.floor(Math.random() * sizeOptions.length)];
+        const randomB = sizeOptions[Math.floor(Math.random() * sizeOptions.length)];
+        [rowsA, colsA] = parseSize(randomA);
+        [rowsB, colsB] = parseSize(randomB);
+      } else {
+        [rowsA, colsA] = parseSize(document.getElementById("sizeSelectA").value);
+        [rowsB, colsB] = parseSize(document.getElementById("sizeSelectB").value);
+      }
+
+      A = getRandomMatrix(rowsA, colsA);
+      B = getRandomMatrix(rowsB, colsB);
+      validAB = colsA === rowsB;
+      C = validAB ? multiplyMatrices(A, B) : null;
+
+      displayMatricesWithMathJax();
+      showStudentResponseOptions();
+      document.getElementById("matrixFeedback").style.display = "none";
+      document.getElementById("matrixSolution").innerText = "";
+      document.getElementById("explanationArea").innerText = "";
+      document.getElementById("countdownTimer").innerText = "";
+      document.getElementById("skipButton").style.display = "none";
+      document.getElementById("pauseButton").style.display = "none";
+      updateScore();
+      MathJax.typeset();
+    }
+
+    function generateMatrices() {
+      regenerateValues();
+    }
+
+    function multiplyMatrices(A, B) {
+      const result = Array.from({ length: A.length }, () =>
+        Array(B[0].length).fill(0)
+      );
+      for (let i = 0; i < A.length; i++) {
+        for (let j = 0; j < B[0].length; j++) {
+          for (let k = 0; k < A[0].length; k++) {
+            result[i][j] += A[i][k] * B[k][j];
+          }
+        }
+      }
+      return result;
+    }
+
+    function toLatexMatrix(matrix) {
+      return '\\begin{bmatrix}' +
+        matrix.map(row => row.join(' & ')).join(' \\\\ ') +
+        '\\end{bmatrix}';
+    }
+
+    function displayMatricesWithMathJax() {
+      const container = document.getElementById("matrixLatex");
+      const latex = `
+        <p>Calculate <span style="font-family: serif;">\\( AB \\)</span>, where:</p>
+        \\[ A = ${toLatexMatrix(A)} \\,, \\quad B = ${toLatexMatrix(B)} \\,. \\]
+      `;
+      container.innerHTML = latex;
+      MathJax.typeset();
+    }
+
+    function showStudentResponseOptions() {
+      const container = document.getElementById("studentResponse");
+      container.innerHTML = `
+        <label>What is the size of \\( AB \\)?</label>
+        <select id="studentAnswerType" onchange="renderStudentAnswerGrid()">
+          ${sizeOptions.map(s => `<option value="${s}">${s.replace("x", " × ")}</option>`).join('')}
+          <option value="undefined">AB is undefined</option>
+        </select>
+        <div id="studentInputArea" style="margin-top: 1em;"></div>
+        <div style="margin-top: 1em;">
+          <button onclick="checkMatrixAnswer()">Submit Answer</button>
+        </div>
+      `;
+      MathJax.typeset();
+    }
+
+    function renderStudentAnswerGrid() {
+      const container = document.getElementById("studentInputArea");
+      const value = document.getElementById("studentAnswerType").value;
+
+      if (value === "undefined") {
+        container.innerHTML = `<p>You have indicated that \\( AB \\) is undefined.</p>`;
+        MathJax.typeset();
+        return;
+      }
+
+      const [rows, cols] = value.split('x').map(Number);
+      let html = `<div class="centered-matrix-line matrix-wrapper">
+        <span class="math-label">\\( AB = \\)</span>
+        <span class="bracket">[</span><table>`;
+      for (let i = 0; i < rows; i++) {
+        html += "<tr>";
+        for (let j = 0; j < cols; j++) {
+          html += `<td><input type="number" id="cell-${i}-${j}"></td>`;
+        }
+        html += "</tr>";
+      }
+      html += `</table><span class="bracket">]</span></div>`;
+      container.innerHTML = html;
+      MathJax.typeset();
+    }
+
+    function checkMatrixAnswer() {
+      total++;
+      const value = document.getElementById("studentAnswerType").value;
+      const feedback = document.getElementById("matrixFeedback");
+      feedback.style.display = "block";
+      document.getElementById("skipButton").style.display = "inline";
+      document.getElementById("pauseButton").style.display = "inline";
+      document.getElementById("pauseButton").innerText = "Pause Countdown";
+
+      let correct = false;
+      if (validAB && value !== "undefined") {
+        const [rows, cols] = value.split('x').map(Number);
+        if (rows === C.length && cols === C[0].length) {
+          correct = true;
+          for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+              const val = parseInt(document.getElementById(`cell-${i}-${j}`).value);
+              if (val !== C[i][j]) correct = false;
+            }
+          }
+        }
+      } else if (!validAB && value === "undefined") {
+        correct = true;
+      }
+
+      if (correct) {
+        score++;
+        feedback.innerText = "✅ Correct!";
+        updateScore();
+        startCountdown(5);
+      } else {
+        feedback.innerText = "❌ Incorrect.";
+        if (validAB) showMatrixSolutionWithClicks();
+        updateScore();
+        startCountdown(10);
+      }
+
+      MathJax.typeset();
+    }
+
+    function startCountdown(seconds) {
+      countdownRemaining = seconds;
+      countdownPaused = false;
+      document.getElementById("countdownTimer").innerText = `Next problem in ${countdownRemaining} seconds...`;
+
+      countdownInterval = setInterval(() => {
+        if (!countdownPaused) {
+          countdownRemaining--;
+          if (countdownRemaining > 0) {
+            document.getElementById("countdownTimer").innerText = `Next problem in ${countdownRemaining} seconds...`;
+          } else {
+            clearInterval(countdownInterval);
+            document.getElementById("pauseButton").style.display = "none";
+            generateMatrices();
+          }
+        }
+      }, 1000);
+    }
+
+    function toggleCountdown() {
+      countdownPaused = !countdownPaused;
+      document.getElementById("pauseButton").innerText = countdownPaused ? "Resume Countdown" : "Pause Countdown";
+    }
+
+    function skipToNext() {
+      clearInterval(countdownInterval);
+      countdownPaused = false;
+      document.getElementById("pauseButton").style.display = "none";
+      generateMatrices();
+    }
+
+    function showMatrixSolutionWithClicks() {
+      if (!validAB) return;
+      const container = document.getElementById("matrixSolution");
+      container.innerHTML = `<p>Correct Product \\( AB \\) (click a cell to see how it was calculated):</p>`;
+      let html = `<div class="centered-matrix-line matrix-wrapper">
+        <span class="math-label">\\( AB = \\)</span>
+        <span class="bracket">[</span><table style="display:inline-table;">`;
+      for (let i = 0; i < C.length; i++) {
+        html += "<tr>";
+        for (let j = 0; j < C[0].length; j++) {
+          html += `<td class="clickable-cell" onclick="showStepExplanation(${i}, ${j})">${C[i][j]}</td>`;
+        }
+        html += "</tr>";
+      }
+      html += `</table><span class="bracket">]</span></div>`;
+      container.innerHTML += html;
+      MathJax.typeset();
+    }
+
+    function showStepExplanation(i, j) {
+      let steps = [];
+      for (let k = 0; k < A[0].length; k++) {
+        steps.push(`${wrapNegative(A[i][k])} \\times ${wrapNegative(B[k][j])}`);
+      }
+      const explanation = `\\[ (AB)_{${i + 1}${j + 1}} = ${steps.join(" + ")} = ${C[i][j]} \\]`;
+      document.getElementById("explanationArea").innerHTML = explanation;
+      MathJax.typeset();
+    }
+
+    function wrapNegative(n) {
+      return n < 0 ? `(${n})` : `${n}`;
+    }
+
+    function updateScore() {
+      document.getElementById("matrixScore").innerText = `Score: ${score} / ${total}`;
+    }
+
+    window.onload = () => {
+      populateSizeDropdowns();
+      updateMode();
+    };
+  </script>
+</body>
+</html>
