@@ -1,12 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Basic Index Page</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Learning Hub — Demos</title>
+  <meta name="description" content="Landing page linking to Anthony Cheung's Learning Hub math & physics demos." />
+  <style>
+    /* ===== Base / Reset ===== */
+    :root {
+      --bg: #0b0c0f;
+      --panel: #111318;
+      --text: #e8eaf1;
+      --muted: #b8bfd1;
+      --brand: #6aa6ff;
+      --brand-ink: #0a3a82;
+      --ring: #2a5bd7;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --text: #111318;
+        --muted: #51607a;
+        --brand: #1e66ff;
+        --brand-ink: #0b3aa6;
+        --ring: #7aa2ff;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font: 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 80% -50%, rgba(30,102,255,.15), transparent),
+                  radial-gradient(900px 600px at -20% 10%, rgba(106,166,255,.12), transparent),
+                  var(--bg);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: 10px; }
+
+    /* ===== Layout ===== */
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px clamp(16px, 3vw, 28px) 52px;
+    }
+
+    header {
+      display: grid;
+      gap: 8px;
+      padding: 30px 0 14px;
+      text-align: center;
+    }
+
+    .title { font-size: clamp(28px, 3.6vw, 40px); font-weight: 750; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: clamp(14px, 1.8vw, 18px); }
+
+    /* ===== Grid of Links ===== */
+    .grid {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: clamp(14px, 2vw, 22px);
+    }
+
+    .card {
+      display: block;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)) , var(--panel);
+      border: 1px solid rgba(120, 144, 180, .18);
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .card:hover { transform: translateY(-3px); box-shadow: 0 18px 38px rgba(0,0,0,.35); border-color: rgba(120,144,180,.28); }
+
+    .card:active { transform: translateY(-1px) scale(.997); }
+
+    .card .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; letter-spacing: .02em; text-transform: uppercase; color: var(--brand-ink);
+      background: color-mix(in oklab, var(--brand), white 68%);
+      border: 1px solid color-mix(in oklab, var(--brand), black 65%);
+      padding: 6px 10px; border-radius: 999px;
+    }
+
+    .card h3 {
+      margin: 10px 0 8px; font-size: clamp(18px, 2.2vw, 22px); letter-spacing: -0.02em;
+    }
+
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .card .arrow {
+      position: absolute; right: 14px; bottom: 14px; font-size: 20px;
+      transition: transform .2s ease;
+    }
+
+    .card:hover .arrow { transform: translateX(4px); }
+
+    /* Subtle decorative blur */
+    .card::after {
+      content: ""; position: absolute; inset: -40% -20% auto auto; width: 220px; height: 220px;
+      background: radial-gradient(closest-side, color-mix(in oklab, var(--brand), transparent 70%), transparent);
+      filter: blur(28px); opacity: .45; z-index: -1;
+      transform: translateY(-40px);
+    }
+
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 42px; }
+
+    /* ===== Small helpers ===== */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  </style>
 </head>
 <body>
-  <h1>Hello, world!</h1>
-  <p>This is a very basic index.html file.</p>
+  <div class="wrap">
+    <header>
+      <div class="title">Learning Hub — Interactive Demos</div>
+      <div class="subtitle">Quick links to calculus, linear algebra, and differential equations applets.</div>
+    </header>
+
+    <main class="grid" aria-label="Demo links">
+      <a class="card" href="https://anthonycheung-usyd.github.io/usyd-lhm-demo/tangents-first-principles.html">
+        <span class="pill" aria-hidden="true">Calculus</span>
+        <h3>Tangents &amp; First Principles</h3>
+        <p>Explore the derivative definition with a visual secant→tangent limit.</p>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+
+      <a class="card" href="https://anthonycheung-usyd.github.io/usyd-lhm-demo/molecular-symmetry-matrices.html">
+        <span class="pill" aria-hidden="true">Linear Algebra</span>
+        <h3>Molecular Symmetry &amp; Matrices</h3>
+        <p>Work with symmetry operations and see their matrix representations.</p>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+
+      <a class="card" href="https://anthonycheung-usyd.github.io/usyd-lhm-demo/ode-equilibria-stability.html">
+        <span class="pill" aria-hidden="true">Differential Eqns</span>
+        <h3>ODE Equilibria &amp; Stability</h3>
+        <p>Phase portraits and fixed points: classify stability and behavior.</p>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+
+      <a class="card" href="https://anthonycheung-usyd.github.io/usyd-lhm-demo/matrix-multiplication.html">
+        <span class="pill" aria-hidden="true">Matrix Skills</span>
+        <h3>Matrix Multiplication Practice</h3>
+        <p>Timed practice with configurable sizes and instant scoring.</p>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </main>
+
+    <footer>
+      <p>© <span id="year"></span> Learning Hub — University of Sydney</p>
+    </footer>
+  </div>
+
+  <script>
+    // Keep the year current automatically
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>
